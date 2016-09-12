@@ -302,6 +302,8 @@ function restart () {
     game.tooth.body.immovable = true;
     game.tooth.body.mass=100;
     game.tooth.angle=90;
+     game.camera.follow(game.tooth);
+     game.camera.follow(game.tooth, Phaser.Camera.FOLLOW_LOCKON);
     restartSpeed=true;
     //hides the text
     stateText.visible = false;
