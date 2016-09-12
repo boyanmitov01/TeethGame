@@ -13,10 +13,13 @@ io.on('connection', function(socket){
   socket.on('kill', function(name){
     io.emit('kill', name);  
   });
+  socket.on('shoot', function(name){
+    io.emit('shoot', name);  
+  });
 
 });
 
 
-http.listen(3000,'10.182.149.212', function(){
+http.listen(3000,'192.168.0.103', function(){
   console.log('listening on *:3000');
 });

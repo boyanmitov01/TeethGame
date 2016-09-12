@@ -11,6 +11,10 @@ var fireRate = 100;
 var nextFire = 0;
 var bulletTime = 0;
 var stateText;
+var count=0;
+var gameOver=true;
+var restartSpeed=false;
+var dead=false;
 function preload (){
     game.id=Math.floor(Math.random() * 1000);
     
@@ -23,8 +27,9 @@ function preload (){
 
 }
 function create (){
-    stateText = game.add.text(game.world.centerX,game.world.centerY,' ', { font: '84px Arial', fill: '#fff' });
-    stateText.anchor.setTo(0.5, 0.5);
+    stateText = game.add.text(100, 100, " Game Over, \n Click 'R' to restart", { font: "100px Arial", fill: "#ff0000", align: "center" });
+    stateText.fixedToCamera = true;
+    stateText.cameraOffset.setTo(200, 200);
     stateText.visible = false;
     game.physics.startSystem(Phaser.Physics.ARCADE);
     game.stage.backgroundColor = '555';
@@ -60,18 +65,20 @@ function create (){
     bullets = game.add.group();
     bullets.enableBody = true;
     bullets.physicsBodyType = Phaser.Physics.ARCADE;
-    bullets.createMultiple(50, 'toothpaste');
-    bullets.setAll('checkWorldBounds', true);
-    bullets.setAll('outOfBoundsKill', true);
+    bullets.createMultiple(150, 'toothpaste');
+    //bullets.setAll('checkWorldBounds', true);
+//bullets.setAll('outOfBoundsKill', true);
 
     bads = game.add.group();
     bads.enableBody = true;
     bads.physicsBodyType = Phaser.Physics.ARCADE;
 
 
+
   //   game.physics.p2.
   game.cursors = game.input.keyboard.createCursorKeys();
  game.spaceKey = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+ game.r = game.input.keyboard.addKey(Phaser.Keyboard.R);
 
 
 
@@ -98,13 +105,28 @@ function create (){
 
 });
 
+    socket.on('shoot', function(id){
+        bads.forEach(function(item) {
+            
+             if(item.name==id&&id!=game.id){
+                 console.log("shoot");
+                shootXY(item.angle,item.x,item.y,item);
+                
+             }
+        });
+    });
+
     socket.on('kill', function(id){
        
-        bads.forEach(function(item) {
+       bads.forEach(function(item) {
              if(game.id===id){
-                console.log("dead");
-                stateText.text = " Game Over, \n Click to restart";
-                stateText.visible = true;
+                 if(gameOver){
+                     dead=true;
+                    stateText.visible = true;
+                    
+                    restart();
+                    dead=false;
+                 }
              }else if(item.name===id){
              console.log("  "+id+"   "+game.id);               
                 item.x=20;
@@ -112,24 +134,24 @@ function create (){
                 item.kill();
                 bads.remove(item); 
              }
-            });
-    
+       });
     });
    
 }
 function update (){
+     //game.paused = false;
+    game.physics.arcade.overlap(bullets, bads, collisionHandler, null, this);
+
+    if(game.r.isDown){
+        restart();
+    }
+
+    if(restartSpeed){
+        game.tooth.body.moveForward(0);
+        restartSpeed=false;
+    }
+
     
-     //teeth.forEach(function(item,key,mapObj){
-         
-     //game.physics.arcade.overlap(teeth.image, bullets, collisionHandler, processHandler, this);
-    //  for(i =0;i<keys.length;i++){
-         //console.log(teeth.get(keys[0]).image.angle);
-        game.physics.arcade.overlap(bullets, bads, collisionHandler, null, this);
-    //  }
-   
-   //  });
-
-
      if (game.spaceKey.isDown) {
         shot=true;
     }
@@ -177,55 +199,35 @@ function update (){
    
        power=0;
     }
-
-    send(game.tooth.x,game.tooth.y,game.tooth.angle,null,null,game.id);
+    if(!dead){
+    if(count<5){
+        count++
+    }else{
+        send(game.tooth.x,game.tooth.y,game.tooth.angle,null,null,game.id);
+        count=0;
+    }
+}
 }
 
 
 window.addEventListener("beforeunload", function (e) {
   var confirmationMessage = "\o/";
+  gameOver=false;
   socket.emit('kill',game.id);
   (e || window.event).returnValue = confirmationMessage; 
   return confirmationMessage;                            
 });
 
 function send(x, y,angle,dir,power,id){
-    socket.emit('changePos',{'x': x,'y': y,'angle':angle,'dir':dir,'power':power ,'id': id});   
+    socket.emit('changePos',{'x': x,'y': y,'angle':angle,'id': id});   
 }
 
-function collide(){
-
-    console.log("colision")
-}
 function shoot(angle){
 
-    if (game.time.now > bulletTime)
-    {
-        bullet = bullets.getFirstExists(false);
-        var c
-        if (bullet)
-        {
-            bullet.reset(game.tooth.body.x, game.tooth.body.y);
-           //bullet.body.mass=-100;
-           //console.log(teeth.get(0).image)
-           
-            bullet.lifespan = 2000;
-            bullet.rotation = game.tooth.rotation;
-            game.physics.arcade.velocityFromRotation(game.tooth.rotation+4.7, 1000, bullet.body.velocity);
-            bulletTime = game.time.now + 50;
-            //game.physics.p2.enable(bullet);
-        }
-    }
+    shootXY(angle,game.tooth.x,game.tooth.y,game.tooth);
+    socket.emit('shoot',game.id);
 }
 
-function deathHandler(){
-    console.log("dead");
-}
-function processHandler (bad, bullet) {
-
-    return true;
-
-}
 
 function collisionHandler (bullet, bad) {
     
@@ -247,3 +249,77 @@ function collisionHandler (bullet, bad) {
     
 
 }
+function shootXY(angle,x,y,image){
+
+    if (game.time.now > bulletTime)
+    {
+        bullet = bullets.getFirstExists(false);
+        var c
+        if (bullet)
+        {
+            bullet.reset(x, y);
+           
+            bullet.lifespan = 2000;
+            bullet.rotation = image.rotation;
+            game.physics.arcade.velocityFromRotation(image.rotation+4.7, 1000, bullet.body.velocity);
+            bulletTime = game.time.now + 50;
+        
+            
+        }
+    }
+}
+
+function restart () {
+
+    //  A new level starts
+    
+    //resets the life count
+   // lives.callAll('revive');
+    //  And brings the aliens back from the dead :)
+    game.tooth.kill();
+    bullets.removeAll();
+    bads.removeAll();
+    if(!game.r.isDown){
+       
+        
+     restart();
+    }
+    bullets.removeAll();
+    game.tooth.body.moveForward(0);
+    
+    bullets.createMultiple(150, 'toothpaste');
+    bads.createMultiple(50, 'bad');
+
+    //revives the player
+    //game.tooth.revive();
+    console.log("revive");
+    game.tooth.body.moveForward(0);
+   
+    game.tooth=game.add.sprite(70, 70,"img");         
+     game.physics.p2.enable(game.tooth);
+     game.physics.arcade.enable(game.tooth);
+
+    game.tooth.body.immovable = true;
+    game.tooth.body.mass=100;
+    game.tooth.angle=90;
+    restartSpeed=true;
+    //hides the text
+    stateText.visible = false;
+    gameOver=true;
+    dead=false;
+    return;
+}
+
+// function unpause(event){
+//    // game.lockRender = true;
+//     while(true){
+//         if(game.paused){
+//             game.input.mouse.capture = true;
+//             console.log("paused");  
+//             if(game.r.isDown){
+//             restart();
+//             break;
+//         }
+//     }
+//     }
+// }
