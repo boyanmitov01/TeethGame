@@ -17,6 +17,6 @@ io.on('connection', function(socket){
 });
 
 
-http.listen(3000, function(){
+http.listen(3000,'10.182.149.212', function(){
   console.log('listening on *:3000');
 });

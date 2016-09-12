@@ -10,6 +10,7 @@ var shot=false;
 var fireRate = 100;
 var nextFire = 0;
 var bulletTime = 0;
+var stateText;
 function preload (){
     game.id=Math.floor(Math.random() * 1000);
     
@@ -22,6 +23,9 @@ function preload (){
 
 }
 function create (){
+    stateText = game.add.text(game.world.centerX,game.world.centerY,' ', { font: '84px Arial', fill: '#fff' });
+    stateText.anchor.setTo(0.5, 0.5);
+    stateText.visible = false;
     game.physics.startSystem(Phaser.Physics.ARCADE);
     game.stage.backgroundColor = '555';
     game.world.setBounds(0, 0, 9600, 9600);
@@ -63,62 +67,53 @@ function create (){
     bads = game.add.group();
     bads.enableBody = true;
     bads.physicsBodyType = Phaser.Physics.ARCADE;
-    bads.createMultiple(50, 'bad');
-    bads.setAll('checkWorldBounds', true);
-    bads.setAll('outOfBoundsKill', true);
-    
-  //   game.physics.p2.enable(bullets);
-    // game.physics.arcade.collide(bullets, );
-     game.physics.p2.
+
+
+  //   game.physics.p2.
   game.cursors = game.input.keyboard.createCursorKeys();
  game.spaceKey = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
 
 
 
   socket.on('changePos', function(x){
-      var image;
-      var x,y;
-        if(teeth.has(x.id)==false){
-            console.log("new");
-            image=game.add.sprite(x.x, x.y,"bad");
-            game.tooth.body.createBodyCallback(image, collide, game);
-            keys[keys.length]=x.id;
-            console.log(keys.length);
-            teeth.set(x.id,{'x': x.x,
-            'y': x.y,
-            'angle':x.angle ,
-            'id': x.id,
-            'image':image});
-            
-            teeth.get(x.id).image=image;
-            teeth.get(x.id).image.angle=x.angle;
-            teeth.get(x.id).image.x=x.x;
-            teeth.get(x.id).image.y=x.y;
-            
+    var bad;
+    var exists=false;
 
-        }else if(teeth.has(x.id)==true){
-            if(x.id!=game.id){
+    if(game.id!==x.id){
+        bads.forEach(function(item) {
+            if(item.name===x.id){
                 console.log("old");
-                teeth.set(x.id,{'x': x.x,
-                'y': x.y,
-                'angle':x.angle ,
-                'id': x.id,
-                'image':teeth.get(x.id).image});
-                teeth.get(x.id).image.angle=x.angle;
-                teeth.get(x.id).image.x=x.x;
-                teeth.get(x.id).image.y=x.y;
-
+                item.x=x.x;
+                item.y=x.y;
+                item.angle=x.angle;
+                exists=true;
             }
-               
-            
-        }
-    });
+        });
+        if(!exists){
+            console.log("new");
+            bad = bads.create(70, 70, 'bad', x.id);
+            bad.name =x.id;
+         }
+    }
+
+});
 
     socket.on('kill', function(id){
-        if(teeth.has(id)==true){
-        teeth.get(id).image.kill();
-        }
-        
+       
+        bads.forEach(function(item) {
+             if(game.id===id){
+                console.log("dead");
+                stateText.text = " Game Over, \n Click to restart";
+                stateText.visible = true;
+             }else if(item.name===id){
+             console.log("  "+id+"   "+game.id);               
+                item.x=20;
+                item.y=20;
+                item.kill();
+                bads.remove(item); 
+             }
+            });
+    
     });
    
 }
@@ -129,7 +124,7 @@ function update (){
      //game.physics.arcade.overlap(teeth.image, bullets, collisionHandler, processHandler, this);
     //  for(i =0;i<keys.length;i++){
          //console.log(teeth.get(keys[0]).image.angle);
-        game.physics.arcade.collide(bullets, teeth.image, collisionHandler, null, this);
+        game.physics.arcade.overlap(bullets, bads, collisionHandler, null, this);
     //  }
    
    //  });
@@ -216,7 +211,7 @@ function shoot(angle){
            
             bullet.lifespan = 2000;
             bullet.rotation = game.tooth.rotation;
-            game.physics.arcade.velocityFromRotation(game.tooth.rotation+4.7, 100, bullet.body.velocity);
+            game.physics.arcade.velocityFromRotation(game.tooth.rotation+4.7, 1000, bullet.body.velocity);
             bulletTime = game.time.now + 50;
             //game.physics.p2.enable(bullet);
         }
@@ -234,14 +229,20 @@ function processHandler (bad, bullet) {
 
 function collisionHandler (bullet, bad) {
     
-    if(bad.angle==game.tooth.angle){
-        console.log("kon");
+    if(bad.name==game.id){
+        console.log("collision with me");
     }else{
         
-        console.log("kk"+bad.angle+" "+game.tooth.angle);
+        console.log("colision with bad:"+bad.angle+" "+game.tooth.angle);
+        socket.emit('kill',bad.name);
+        bullet.x=10;
+        bullet.y=10;
         bullet.kill();
-       // bad.kill();
-      //  socket.emit('kill',bad.id);                        
+        bullets.remove(bullet)
+        bad.x=20;
+        bad.y=20;
+       bad.kill();
+       bads.remove(bad);                  
     }
     
 
