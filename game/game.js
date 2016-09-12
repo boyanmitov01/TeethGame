@@ -22,6 +22,7 @@ function preload (){
 
 }
 function create (){
+    game.physics.startSystem(Phaser.Physics.ARCADE);
     game.stage.backgroundColor = '555';
     game.world.setBounds(0, 0, 9600, 9600);
      game.physics.startSystem(Phaser.Physics.P2JS);
@@ -38,6 +39,8 @@ function create (){
 
     game.tooth=game.add.sprite(70, 70,"img");         
      game.physics.p2.enable(game.tooth);
+     game.physics.arcade.enable(game.tooth);
+
     game.tooth.body.immovable = true;
     game.tooth.body.mass=100;
      game.tooth.angle=50;
@@ -49,17 +52,29 @@ function create (){
     'image':game.tooth});
      game.camera.follow(game.tooth);
      game.camera.follow(game.tooth, Phaser.Camera.FOLLOW_LOCKON);
-     bullets = game.add.group();
+     // bullets = game.add.physicsGroup();
+    bullets = game.add.group();
     bullets.enableBody = true;
     bullets.physicsBodyType = Phaser.Physics.ARCADE;
-
     bullets.createMultiple(50, 'toothpaste');
     bullets.setAll('checkWorldBounds', true);
     bullets.setAll('outOfBoundsKill', true);
-     game.physics.p2.enable(bullets);
+
+    bads = game.add.group();
+    bads.enableBody = true;
+    bads.physicsBodyType = Phaser.Physics.ARCADE;
+    bads.createMultiple(50, 'bad');
+    bads.setAll('checkWorldBounds', true);
+    bads.setAll('outOfBoundsKill', true);
+    
+  //   game.physics.p2.enable(bullets);
+    // game.physics.arcade.collide(bullets, );
      game.physics.p2.
   game.cursors = game.input.keyboard.createCursorKeys();
  game.spaceKey = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+
+
+
   socket.on('changePos', function(x){
       var image;
       var x,y;
@@ -68,16 +83,18 @@ function create (){
             image=game.add.sprite(x.x, x.y,"bad");
             game.tooth.body.createBodyCallback(image, collide, game);
             keys[keys.length]=x.id;
+            console.log(keys.length);
             teeth.set(x.id,{'x': x.x,
             'y': x.y,
             'angle':x.angle ,
             'id': x.id,
             'image':image});
-               
+            
             teeth.get(x.id).image=image;
             teeth.get(x.id).image.angle=x.angle;
             teeth.get(x.id).image.x=x.x;
             teeth.get(x.id).image.y=x.y;
+            
 
         }else if(teeth.has(x.id)==true){
             if(x.id!=game.id){
@@ -107,9 +124,17 @@ function create (){
 }
 function update (){
     
-    // teeth.forEach(function(item,key,mapObj){
-    //  game.physics.arcade.collide(bullets, mapObj.get(key).image, deathHandler, null, this);
-    // });
+     //teeth.forEach(function(item,key,mapObj){
+         
+     //game.physics.arcade.overlap(teeth.image, bullets, collisionHandler, processHandler, this);
+    //  for(i =0;i<keys.length;i++){
+         //console.log(teeth.get(keys[0]).image.angle);
+        game.physics.arcade.collide(bullets, teeth.image, collisionHandler, null, this);
+    //  }
+   
+   //  });
+
+
      if (game.spaceKey.isDown) {
         shot=true;
     }
@@ -182,18 +207,42 @@ function shoot(angle){
     if (game.time.now > bulletTime)
     {
         bullet = bullets.getFirstExists(false);
-
+        var c
         if (bullet)
         {
             bullet.reset(game.tooth.body.x, game.tooth.body.y);
+           //bullet.body.mass=-100;
+           //console.log(teeth.get(0).image)
+           
             bullet.lifespan = 2000;
             bullet.rotation = game.tooth.rotation;
-            game.physics.arcade.velocityFromRotation(game.tooth.rotation+4.7, 1000, bullet.body.velocity);
+            game.physics.arcade.velocityFromRotation(game.tooth.rotation+4.7, 100, bullet.body.velocity);
             bulletTime = game.time.now + 50;
+            //game.physics.p2.enable(bullet);
         }
     }
 }
 
 function deathHandler(){
     console.log("dead");
+}
+function processHandler (bad, bullet) {
+
+    return true;
+
+}
+
+function collisionHandler (bullet, bad) {
+    
+    if(bad.angle==game.tooth.angle){
+        console.log("kon");
+    }else{
+        
+        console.log("kk"+bad.angle+" "+game.tooth.angle);
+        bullet.kill();
+       // bad.kill();
+      //  socket.emit('kill',bad.id);                        
+    }
+    
+
 }
