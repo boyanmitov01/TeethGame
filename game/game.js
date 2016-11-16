@@ -15,6 +15,10 @@ var count=0;
 var gameOver=true;
 var restartSpeed=false;
 var dead=false;
+var leftVel=-1;
+var rightVel=1;
+var rightVelAdd=0;
+var leftVelAdd=0;
 function preload (){
     game.id=Math.floor(Math.random() * 1000);
     
@@ -142,6 +146,7 @@ function update (){
      //game.paused = false;
     game.physics.arcade.overlap(bullets, bads, collisionHandler, null, this);
 
+
     if(game.r.isDown){
         restart();
     }
@@ -162,14 +167,37 @@ function update (){
         shot=false; 
     }
     if (game.cursors.right.isDown) {
-        game.tooth.body.angularVelocity = 6;
+        game.tooth.body.angularVelocity = rightVel;
+        if(rightVel!==7&&rightVelAdd<7){
+            rightVelAdd++;
+        }
+        if(rightVelAdd==6&&rightVel!==7){
+            rightVel++;
+            rightVelAdd=0;
+        }
+        
        dir='right';
-       power=6;
+       power=rightVel;
+    }
+    if (game.cursors.right.isUp) {
+        rightVel=1;
+        rightVelAdd=0;
     }
     if (game.cursors.left.isDown) {
-        game.tooth.body.angularVelocity = -6;
+        game.tooth.body.angularVelocity = leftVel;
+        if(leftVel!==7&&rightVelAdd<7){
+            leftVelAdd++;
+        }
+        if(leftVelAdd==6&&leftVel!==-7){
+            leftVel--;
+            leftVelAdd=0;
+        }
          dir='left';
-       power=-6;
+       power=leftVel;
+    } 
+    if (game.cursors.left.isUp) {
+        leftVel=-1;
+        leftVelAdd=0;
     } 
      if (game.cursors.down.isDown) {
        if(stop1){
