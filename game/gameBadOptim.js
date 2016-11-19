@@ -7,7 +7,6 @@ var power;
 var stop=false;
 var stop1=false;
 var shot=false;
-var shotPointer=false;
 var fireRate = 100;
 var nextFire = 0;
 var bulletTime = 0;
@@ -20,11 +19,13 @@ var leftVel=-1;
 var rightVel=1;
 var rightVelAdd=0;
 var leftVelAdd=0;
+var tilt=false;
+var move=false;
 function preload (){
     game.id=Math.floor(Math.random() * 1000);
     
     game.load.image('img', '1.png');
-    game.load.image('bad', 'caries-512.png');
+    game.load.image('bad', 'bad.png');
     game.load.image('tileset', 'tileset1.png');
     game.load.image('toothpaste', 'toothpaste.png');
     game.load.tilemap('map', 'space2.json', null, 
@@ -37,7 +38,7 @@ function create (){
     stateText.cameraOffset.setTo(200, 200);
     stateText.visible = false;
     game.physics.startSystem(Phaser.Physics.ARCADE);
-    game.stage.backgroundColor = '777';
+    game.stage.backgroundColor = '555';
     game.world.setBounds(0, 0, 9600, 9600);
      game.physics.startSystem(Phaser.Physics.P2JS);
      game.physics.p2.gravity.y = 0;
@@ -66,6 +67,7 @@ function create (){
     'image':game.tooth});
      game.camera.follow(game.tooth);
      game.camera.follow(game.tooth, Phaser.Camera.FOLLOW_LOCKON);
+     socket.emit('create',game.id);
      // bullets = game.add.physicsGroup();
     bullets = game.add.group();
     bullets.enableBody = true;
@@ -75,8 +77,8 @@ function create (){
 //bullets.setAll('outOfBoundsKill', true);
 
     bads = game.add.group();
-    bads.enableBody = true;
-    bads.physicsBodyType = Phaser.Physics.ARCADE;
+    //bads.enableBody = true;
+   // bads.physicsBodyType = Phaser.Physics.ARCADE;
 
 
 
@@ -86,31 +88,123 @@ function create (){
  game.r = game.input.keyboard.addKey(Phaser.Keyboard.R);
 
 
+ socket.on('recInfo', function(x){
+    if(x.rec==game.id){
+        //bad = bads.create(x.x, x.y, 'bad', x.id);
+        bad=bads.create(x.x, x.y, 'bad'); 
+        bad.name =x.id;
+        bad.angle=x.angle;
+        game.physics.p2.enable(bad);
+        game.physics.arcade.enable(bad);
+        bad.body.mass=100;
+    }
+});
 
-  socket.on('changePos', function(x){
-    var bad;
-    var exists=false;
-
-    if(game.id!==x.id){
-        bads.forEach(function(item) {
-            if(item.name===x.id){
-                console.log("old");
-                item.angle=x.angle;
-                item.x=x.x;
-                item.y=x.y;
-                
-                exists=true;
-                console.log(item.x);
-            }
-        });
-        if(!exists){
-            console.log("new");
-            bad = bads.create(54, 54, 'bad', x.id);
-            bad.name =x.id;
-         }
+ socket.on('askInfo', function(x){
+     console.log('someone is asking so for info');
+    if(game.id==x.give){
+        console.log('someone is asking me for info');
+        socket.emit('recInfo',{'x': game.tooth.x,'y': game.tooth.y,'angle':game.tooth.angle,'id': game.id,'rec':x.ask})
     }
 
 });
+
+socket.on('rightTiltStart', function(id){
+    var ex=false;
+    if(game.id!==id){
+        bads.forEach(function(item) {
+            if(item.name===id){
+                item.body.angularVelocity = 6;
+                ex=true;
+            }
+        });
+        if(!ex){
+            console.log('should create new');
+            socket.emit('askInfo',{'give':id,'ask':game.id});
+        }
+         
+    }
+
+});
+
+
+socket.on('leftTiltStart', function(id){
+    
+    if(game.id!==id){
+        bads.forEach(function(item) {
+            if(item.name===id){
+                console.log('tilt left');
+                item.body.angularVelocity = -100;
+            }
+        });
+    }
+
+});
+
+
+socket.on('tiltEnd', function(id){
+    if(game.id!==id){
+        bads.forEach(function(item) {
+            if(item.name===id){
+                item.body.angularVelocity = 0;
+            }
+        });
+         
+    }
+
+});
+
+socket.on('moveF', function(id){
+    if(game.id!==id){
+        bads.forEach(function(item) {
+            if(item.name===id){
+                item.moving=true;
+                moving(item,18000);
+            }
+        });
+         
+    }
+
+});
+
+socket.on('moveB', function(id){
+    if(game.id!==id){
+        bads.forEach(function(item) {
+            if(item.name===id){
+                item.moving=true;
+                moving(item,-18000);
+            }
+        });
+         
+    }
+
+});
+
+socket.on('moveRelease', function(id){
+    if(game.id!==id){
+        bads.forEach(function(item) {
+            if(item.name===id){
+                item.moving=false;
+                console.log('release moving   ' +item.moving);
+            }
+        });
+         
+    }
+
+});
+
+socket.on('stopMove', function(id){
+    if(game.id!==id){
+        bads.forEach(function(item) {
+            if(item.name===id){
+                item.body.moveForward(0);
+            }
+        });
+         
+    }
+
+});
+
 
     socket.on('shoot', function(id){
         bads.forEach(function(item) {
@@ -149,24 +243,6 @@ function update (){
      //game.paused = false;
     game.physics.arcade.overlap(bullets, bads, collisionHandler, null, this);
 
-    if(!game.device.desktop){
-        if(game.physics.arcade.distanceToPointer(game.tooth, game.input.activePointer)>5){
-            game.physics.arcade.moveToPointer(game.tooth,100);
-            game.tooth.body.rotation = game.physics.arcade.angleToPointer(game.tooth) - Math.PI/2+3.2;
-        }
-
-        if (game.input.pointer2.isDown&&game.input.pointer2.x<window.innerWidth/2){
-            shotPointer=true;
-        }else{
-            if(shotPointer){
-                shoot(game.tooth.angle);
-            //alert('should shoot');
-            }
-            shotPointer=false; 
-        }
-    }
-    
-      
 
     if(game.r.isDown){
         restart();
@@ -188,43 +264,32 @@ function update (){
         shot=false; 
     }
     if (game.cursors.right.isDown) {
-        game.tooth.body.angularVelocity = rightVel;
-        if(rightVel!==7&&rightVelAdd<7){
-            rightVelAdd++;
+        game.tooth.body.angularVelocity = 6;
+        if(!tilt){
+            socket.emit('rightTiltStart',game.id);
         }
-        if(rightVelAdd==6&&rightVel!==7){
-            rightVel++;
-            rightVelAdd=0;
-        }
-        
+        tilt=true;
        dir='right';
-       power=rightVel;
+       power=6;
     }
-    if (game.cursors.right.isUp) {
-        rightVel=1;
-        rightVelAdd=0;
-    }
+
     if (game.cursors.left.isDown) {
-        game.tooth.body.angularVelocity = leftVel;
-        if(leftVel!==7&&rightVelAdd<7){
-            leftVelAdd++;
-        }
-        if(leftVelAdd==6&&leftVel!==-7){
-            leftVel--;
-            leftVelAdd=0;
-        }
+        game.tooth.body.angularVelocity = -6;
+       // if(!tilt){
+            socket.emit('leftTiltStart',game.id);
+       // }
+        tilt=true;
          dir='left';
-       power=leftVel;
+       power=-6;
     } 
-    if (game.cursors.left.isUp) {
-        leftVel=-1;
-        leftVelAdd=0;
-    } 
+
      if (game.cursors.down.isDown) {
-       if(stop1){
-        game.tooth.body.moveForward(0);
+        if(stop1){
+            game.tooth.body.moveForward(0);
+            socket.emit('stopMove',game.id);
+            
          }
-        
+        socket.emit('moveB',game.id);
         game.tooth.body.thrust(-18000);
          dir='backward';
        power=300;
@@ -232,10 +297,12 @@ function update (){
        stop1=false;
     } 
      if (game.cursors.up.isDown) {
-         if(stop){
-        game.tooth.body.moveForward(0);
+        if(stop){
+            game.tooth.body.moveForward(0);
+            socket.emit('stopMove',game.id);
+            
          }
-
+        socket.emit('moveF',game.id);
         game.tooth.body.thrust(18000);
          dir='forward';
        power=300;
@@ -244,19 +311,19 @@ function update (){
     } 
     if (game.cursors.right.isUp&&game.cursors.left.isUp) {
         game.tooth.body.angularVelocity=0; 
+        if(tilt){
+            socket.emit('tiltEnd',game.id);
+        }
+        tilt=false;
+        
         dir='right';
    
        power=0;
     }
-    if(!dead){
-    if(count<5){
-        count++
-    }else{
-        send(game.tooth.x ,game.tooth.y ,game.tooth.angle,null,null,game.id);
-        count=0;
-        console.log(game.tooth.x)
+    if (game.cursors.right.isUp&&game.cursors.left.isUp) {
+        socket.emit('moveRelease',game.id);
     }
-}
+    
 }
 
 
@@ -360,6 +427,18 @@ function restart () {
     gameOver=true;
     dead=false;
     return;
+}
+
+function moving(object,thrust){
+   // console.log('thurst');
+   // while(object.moving){
+      // for(var i=0;i<10;i++){
+        object.body.thrust(thrust);
+        
+     //  }
+        //problem with body and shit like this!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  //}
+    console.log('end  thurst');
 }
 
 // function unpause(event){
